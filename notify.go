@@ -81,6 +81,11 @@ func (m *NotificationItem) Color() (color string) {
 	return
 }
 
+func (m *NotificationItem) TitleForCompleted() (title string) {
+	title = fmt.Sprintf("#%d %s by %s", *m.pr.Number, *m.pr.Title, *m.pr.User.Login)
+	return
+}
+
 func (m *NotificationItem) Title() (title string) {
 	ctx := context.Background()
 
@@ -120,11 +125,19 @@ func (m *NotificationItem) Footer() (footer string) {
 }
 
 func (m *NotificationItem) MakeAttachment() slack.Attachment {
-	return slack.Attachment{
-		Color:     m.Color(),
-		Title:     m.Title(),
-		TitleLink: *m.pr.HTMLURL,
-		Text:      m.ReactionTable(),
-		Footer:    m.Footer(),
+	if m.IsComplete() {
+		return slack.Attachment{
+			Color:     m.Color(),
+			Title:     m.TitleForCompleted(),
+			TitleLink: *m.pr.HTMLURL,
+		}
+	} else {
+		return slack.Attachment{
+			Color:     m.Color(),
+			Title:     m.Title(),
+			TitleLink: *m.pr.HTMLURL,
+			Text:      m.ReactionTable(),
+			Footer:    m.Footer(),
+		}
 	}
 }
