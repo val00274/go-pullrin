@@ -1,15 +1,44 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
+
+	"net/http"
 
 	"github.com/nlopes/slack"
 	"github.com/val00274/go-pullrin"
 	"golang.org/x/net/context"
 )
 
+type Sponsor struct {
+	Name   string `json:"name"`
+	Phrase string `json:"phrase"`
+}
+
+func FetchSponsor(url string) (*Sponsor, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var result Sponsor
+	if err := json.Unmarshal(body, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
 type env struct {
+	sponsorAPIURL   string
 	name            string
 	iconURL         string
 	githubOwner     string
@@ -22,6 +51,7 @@ type env struct {
 
 func getEnv() env {
 	return env{
+		sponsorAPIURL:   os.Getenv("PULLRIN_SPONSOR_API_URL"),
 		name:            os.Getenv("PULLRIN_NAME"),
 		iconURL:         os.Getenv("PULLRIN_ICON_URL"),
 		githubOwner:     os.Getenv("PULLRIN_GITHUB_OWNER"),
@@ -59,7 +89,13 @@ func makeMessage(env *env) (string, []slack.Attachment, error) {
 
 		attachments = append(attachments, item.MakeAttachment())
 	}
-	return "", attachments, nil
+
+	sponsor, err := FetchSponsor(env.sponsorAPIURL)
+	if err != nil {
+		return "", attachments, nil
+	} else {
+		return fmt.Sprintf("この投稿は、『%s』、%sの提供でお送りします。", sponsor.Phrase, sponsor.Name), attachments, nil
+	}
 }
 
 func main() {
