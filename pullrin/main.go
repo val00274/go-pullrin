@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"sort"
 	"strings"
 
 	"net/http"
@@ -67,6 +68,22 @@ func (e *env) listReviewers() []string {
 	return strings.Split(e.githubReviewers, ",")
 }
 
+type ByStatus struct {
+	attachments []slack.Attachment
+}
+
+func (s *ByStatus) Len() int {
+	return len(s.attachments)
+}
+
+func (s *ByStatus) Less(i, j int) bool {
+	return strings.Compare(s.attachments[i].Color, s.attachments[j].Color) > 0
+}
+
+func (s *ByStatus) Swap(i, j int) {
+	s.attachments[i], s.attachments[j] = s.attachments[j], s.attachments[i]
+}
+
 func makeMessage(env *env) (string, []slack.Attachment, error) {
 	ctx := context.Background()
 	repo := pullrin.OpenRepository(ctx, env.githubToken, env.githubOwner, env.githubRepo)
@@ -89,6 +106,8 @@ func makeMessage(env *env) (string, []slack.Attachment, error) {
 
 		attachments = append(attachments, item.MakeAttachment())
 	}
+
+	sort.Sort(&ByStatus{attachments})
 
 	sponsor, err := FetchSponsor(env.sponsorAPIURL)
 	if err != nil {
